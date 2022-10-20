@@ -9,7 +9,7 @@
     "postbuild": "next-sitemap",
     "translations": "formatjs extract './{components,pages}/**/*.{ts,tsx}' --out-file temp.json --flatten --id-interpolation-pattern '[sha512:contenthash:base64:6]' && formatjs compile 'temp.json' --out-file locale/en-US.json && rm ./temp.json",
     "analyze-build": "ANALYZE=true next build",
-    "start": "next start",
+    "start": "next start --port ${PORT-3000}",
     "lint": "next lint --dir .",
     "lint:staged": "next lint --dir . --fix --quiet",
     "check-types": "tsc --noEmit",

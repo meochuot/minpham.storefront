@@ -1,0 +1,16 @@
+FROM node:18-slim AS version
+WORKDIR /app
+
+FROM version AS base
+RUN npm install --location=global pnpm
+
+FROM base AS builder
+COPY . .
+RUN find ./ -name package.json -exec sed -i -E 's/"cypress":?.+,$//g'  {} \;
+RUN pnpm install
+RUN pnpm run build
+
+#FROM base AS prod
+#COPY --from=builder /app/ ./
+
+CMD pnpm run start --filter=storefront...

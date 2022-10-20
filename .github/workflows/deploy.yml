@@ -1,0 +1,63 @@
+name: Deploy develop
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy:
+    name: Deploy develop environment
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/frontend-dev
+      GS_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GS_PROJECT_REGION: ${{ secrets.GCP_PROJECT_REGION }}
+      GS_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS_DEV }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Cloud auth
+        uses: 'google-github-actions/auth@v0'
+        with:
+          credentials_json: '${{ env.GS_CREDENTIALS }}'
+
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v0'
+
+      - name: Setup environment
+        run: |
+          gcloud secrets versions access latest --secret="${{ env.GS_PROJECT_ID }}-storefront-dev" > .env.local
+          cp .env.local apps/storefront/.env.local
+          cp .env.local apps/saleor-app-checkout/.env.local
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build Docker image
+        run: docker build . -t $IMAGE_NAME:$GITHUB_SHA -t $IMAGE_NAME:latest -f Dockerfile.prod
+
+      - name: Push Docker image
+        run: docker push $IMAGE_NAME --all-tags
+            
+      - name: Deploy checkout app
+        run: |-
+          gcloud run deploy checkout-${{ env.GS_PROJECT_ID }}-default-dev \
+            --image $IMAGE_NAME:$GITHUB_SHA \
+            --region $GS_PROJECT_REGION \
+            --command pnpm \
+            --args run \
+            --args "start:saleor-app-checkout"
+
+      - name: Deploy storefront
+        run: |-
+          gcloud run deploy frontend-${{ env.GS_PROJECT_ID }}-default-dev \
+            --image $IMAGE_NAME:$GITHUB_SHA \
+            --region $GS_PROJECT_REGION \
+            --command pnpm \
+            --args run \
+            --args "start:storefront"
+
+
+
